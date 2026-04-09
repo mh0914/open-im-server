@@ -1,0 +1,199 @@
+networks:
+  openim:
+    driver: bridge
+
+services:
+  mongodb:
+    image: "${MONGO_IMAGE}"
+    container_name: mongo
+    restart: always
+    ports:
+      - "37017:27017"
+    volumes:
+      - "${DATA_DIR}/components/mongodb/data/db:/data/db"
+      - "${DATA_DIR}/components/mongodb/data/logs:/data/logs"
+      - "${DATA_DIR}/components/mongodb/data/conf:/etc/mongo"
+    environment:
+      TZ: "${TZ}"
+      wiredTigerCacheSizeGB: 1
+      MONGO_INITDB_ROOT_USERNAME: "${MONGO_INITDB_ROOT_USERNAME}"
+      MONGO_INITDB_ROOT_PASSWORD: "${MONGO_INITDB_ROOT_PASSWORD}"
+      MONGO_INITDB_DATABASE: "${MONGO_DATABASE}"
+      MONGO_OPENIM_USERNAME: "${MONGO_USERNAME}"
+      MONGO_OPENIM_PASSWORD: "${MONGO_PASSWORD}"
+    command: >
+      bash -c '
+      docker-entrypoint.sh mongod --wiredTigerCacheSizeGB $$wiredTigerCacheSizeGB --auth &
+      until mongosh -u $$MONGO_INITDB_ROOT_USERNAME -p $$MONGO_INITDB_ROOT_PASSWORD --authenticationDatabase admin --eval "db.runCommand({ ping: 1 })" >/dev/null 2>&1; do
+        echo "Waiting for MongoDB to start..."
+        sleep 1
+      done &&
+      mongosh -u $$MONGO_INITDB_ROOT_USERNAME -p $$MONGO_INITDB_ROOT_PASSWORD --authenticationDatabase admin --eval "
+      db = db.getSiblingDB(\"$$MONGO_INITDB_DATABASE\");
+      if (!db.getUser(\"$$MONGO_OPENIM_USERNAME\")) {
+        db.createUser({
+          user: \"$$MONGO_OPENIM_USERNAME\",
+          pwd: \"$$MONGO_OPENIM_PASSWORD\",
+          roles: [{role: \"readWrite\", db: \"$$MONGO_INITDB_DATABASE\"}]
+        });
+      }
+      " &&
+      tail -f /dev/null
+      '
+    networks:
+      - openim
+
+  redis:
+    image: "${REDIS_IMAGE}"
+    container_name: redis
+    restart: always
+    ports:
+      - "16379:6379"
+    volumes:
+      - "${DATA_DIR}/components/redis/data:/data"
+    environment:
+      TZ: "${TZ}"
+    command: >
+      redis-server
+      --requirepass ${REDIS_PASSWORD}
+      --appendonly yes
+      --aof-use-rdb-preamble yes
+      --save ""
+    networks:
+      - openim
+
+  etcd:
+    image: "${ETCD_IMAGE}"
+    container_name: etcd
+    restart: always
+    ports:
+      - "12379:2379"
+      - "12380:2380"
+    environment:
+      ETCD_NAME: s1
+      ETCD_DATA_DIR: /etcd-data
+      ETCD_LISTEN_CLIENT_URLS: http://0.0.0.0:2379
+      ETCD_ADVERTISE_CLIENT_URLS: http://0.0.0.0:2379
+      ETCD_LISTEN_PEER_URLS: http://0.0.0.0:2380
+      ETCD_INITIAL_ADVERTISE_PEER_URLS: http://0.0.0.0:2380
+      ETCD_INITIAL_CLUSTER: s1=http://0.0.0.0:2380
+      ETCD_INITIAL_CLUSTER_TOKEN: tkn
+      ETCD_INITIAL_CLUSTER_STATE: new
+      ALLOW_NONE_AUTHENTICATION: "no"
+      ETCD_ROOT_USER: "${ETCD_ROOT_USER}"
+      ETCD_ROOT_PASSWORD: "${ETCD_ROOT_PASSWORD}"
+      ETCD_USERNAME: "${ETCD_USERNAME}"
+      ETCD_PASSWORD: "${ETCD_PASSWORD}"
+    volumes:
+      - "${DATA_DIR}/components/etcd:/etcd-data"
+    command: >
+      /bin/sh -c '
+        etcd &
+        export ETCDCTL_API=3
+        until etcdctl --endpoints=http://127.0.0.1:2379 endpoint health >/dev/null 2>&1; do
+          echo "Waiting for etcd to start..."
+          sleep 1
+        done
+        if [ -n "$${ETCD_ROOT_USER}" ] && [ -n "$${ETCD_ROOT_PASSWORD}" ] && [ -n "$${ETCD_USERNAME}" ] && [ -n "$${ETCD_PASSWORD}" ]; then
+          etcdctl --endpoints=http://127.0.0.1:2379 user add $${ETCD_ROOT_USER} --new-user-password=$${ETCD_ROOT_PASSWORD} || true
+          etcdctl --endpoints=http://127.0.0.1:2379 user add $${ETCD_USERNAME} --new-user-password=$${ETCD_PASSWORD} || true
+          etcdctl --endpoints=http://127.0.0.1:2379 role add openim-role || true
+          etcdctl --endpoints=http://127.0.0.1:2379 role grant-permission openim-role --prefix=true readwrite / || true
+          etcdctl --endpoints=http://127.0.0.1:2379 role grant-permission openim-role --prefix=true readwrite "" || true
+          etcdctl --endpoints=http://127.0.0.1:2379 user grant-role $${ETCD_USERNAME} openim-role || true
+          etcdctl --endpoints=http://127.0.0.1:2379 auth enable || true
+        fi
+        tail -f /dev/null
+      '
+    networks:
+      - openim
+
+  kafka:
+    image: "${KAFKA_IMAGE}"
+    container_name: kafka
+    user: root
+    restart: always
+    ports:
+      - "${KAFKA_EXTERNAL_PORT}:9094"
+    volumes:
+      - "${DATA_DIR}/components/kafka:/bitnami/kafka"
+    environment:
+      TZ: "${TZ}"
+      KAFKA_CFG_NODE_ID: 0
+      KAFKA_CFG_PROCESS_ROLES: controller,broker
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 0@kafka:9093
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_NUM_PARTITIONS: 8
+      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_CFG_LISTENERS: "INTERNAL://:9092,CONTROLLER://:9093,EXTERNAL://:9094"
+      KAFKA_CFG_ADVERTISED_LISTENERS: "INTERNAL://kafka:9092,EXTERNAL://localhost:${KAFKA_EXTERNAL_PORT}"
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT,INTERNAL:PLAINTEXT"
+      KAFKA_CFG_INTER_BROKER_LISTENER_NAME: INTERNAL
+    command: >
+      /bin/sh -c '
+        exec /opt/bitnami/scripts/kafka/entrypoint.sh /opt/bitnami/scripts/kafka/run.sh
+      '
+    networks:
+      - openim
+
+  minio:
+    image: "${MINIO_IMAGE}"
+    container_name: minio
+    restart: always
+    ports:
+      - "${MINIO_PORT}:9000"
+      - "${MINIO_CONSOLE_PORT}:9090"
+    volumes:
+      - "${DATA_DIR}/components/minio/data:/data"
+      - "${DATA_DIR}/components/minio/config:/root/.minio"
+    environment:
+      TZ: "${TZ}"
+      MINIO_ROOT_USER: "${MINIO_ACCESS_KEY_ID}"
+      MINIO_ROOT_PASSWORD: "${MINIO_SECRET_ACCESS_KEY}"
+    command: minio server /data --console-address ":9090"
+    networks:
+      - openim
+
+  openim-server:
+    image: "${OPENIM_SERVER_IMAGE}"
+    container_name: openim-server
+    restart: always
+    depends_on:
+      - mongodb
+      - redis
+      - etcd
+      - kafka
+      - minio
+    entrypoint:
+      - bash
+      - -lc
+      - |
+        for target in mongo:27017 redis:6379 etcd:2379 kafka:9092 minio:9000; do
+          host="${target%%:*}"
+          port="${target##*:}"
+          until </dev/tcp/$host/$port; do
+            echo "Waiting for $target ..."
+            sleep 2
+          done
+        done
+        mage start
+        tail -f /dev/null
+    ports:
+      - "${OPENIM_MSG_GATEWAY_PORT}:10001"
+      - "${OPENIM_API_PORT}:10002"
+    volumes:
+      - "./config:/openim-server/config:ro"
+      - "./start-config.yml:/openim-server/start-config.yml:ro"
+      - "${DATA_DIR}/logs:/openim-server/_output/logs"
+    ulimits:
+      nofile:
+        soft: 10000
+        hard: 10000
+    healthcheck:
+      test: ["CMD-SHELL", "mage check >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    networks:
+      - openim

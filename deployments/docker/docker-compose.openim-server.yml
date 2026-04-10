@@ -166,13 +166,13 @@ services:
       - minio
     entrypoint:
       - bash
-      - -lc
+      - -c
       - |
         for target in mongo:27017 redis:6379 etcd:2379 kafka:9092 minio:9000; do
-          host="${target%%:*}"
-          port="${target##*:}"
-          until </dev/tcp/$host/$port; do
-            echo "Waiting for $target ..."
+          host="$${target%%:*}"
+          port="$${target##*:}"
+          until </dev/tcp/$$host/$$port; do
+            echo "Waiting for $$target ..."
             sleep 2
           done
         done

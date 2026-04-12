@@ -23,6 +23,9 @@ logs
 components
 out-test
 Dockerfile.cross
+artifacts/kylin2303-offline/buildctx/
+artifacts/kylin2303-offline/images/
+artifacts/kylin2303-offline/packages/
 
 ### Makefile ###
 tmp/

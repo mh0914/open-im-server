@@ -8,7 +8,7 @@ services:
     container_name: mongo
     restart: always
     ports:
-      - "127.0.0.1:37017:27017"
+      - "37017:27017"
     volumes:
       - "${DATA_DIR}/components/mongodb/data/db:/data/db"
       - "${DATA_DIR}/components/mongodb/data/logs:/data/logs"
@@ -48,7 +48,7 @@ services:
     container_name: redis
     restart: always
     ports:
-      - "127.0.0.1:16379:6379"
+      - "16379:6379"
     volumes:
       - "${DATA_DIR}/components/redis/data:/data"
     environment:
@@ -67,8 +67,8 @@ services:
     container_name: etcd
     restart: always
     ports:
-      - "127.0.0.1:12379:2379"
-      - "127.0.0.1:12380:2380"
+      - "12379:2379"
+      - "12380:2380"
     environment:
       ETCD_NAME: s1
       ETCD_DATA_DIR: /etcd-data
@@ -114,7 +114,7 @@ services:
     user: root
     restart: always
     ports:
-      - "127.0.0.1:${KAFKA_EXTERNAL_PORT}:9094"
+      - "${KAFKA_EXTERNAL_PORT}:9094"
     volumes:
       - "${DATA_DIR}/components/kafka:/bitnami/kafka"
     environment:
@@ -141,8 +141,8 @@ services:
     container_name: minio
     restart: always
     ports:
-      - "127.0.0.1:${MINIO_PORT}:9000"
-      - "127.0.0.1:${MINIO_CONSOLE_PORT}:9090"
+      - "${MINIO_PORT}:9000"
+      - "${MINIO_CONSOLE_PORT}:9090"
     volumes:
       - "${DATA_DIR}/components/minio/data:/data"
       - "${DATA_DIR}/components/minio/config:/root/.minio"
@@ -179,8 +179,8 @@ services:
         mage start
         tail -f /dev/null
     ports:
-      - "127.0.0.1:${OPENIM_MSG_GATEWAY_PORT}:10001"
-      - "127.0.0.1:${OPENIM_API_PORT}:10002"
+      - "${OPENIM_MSG_GATEWAY_PORT}:10001"
+      - "${OPENIM_API_PORT}:10002"
     volumes:
       - "./config:/openim-server/config:ro"
       - "./start-config.yml:/openim-server/start-config.yml:ro"

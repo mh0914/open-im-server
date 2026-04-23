@@ -176,8 +176,12 @@ func (m *msgServer) sendMsgSingleChat(ctx context.Context, req *pbmsg.SendMsgReq
 	}
 	isSend := true
 	isNotification := msgprocessor.IsNotificationByMsg(req.MsgData)
+	conversationID := conversationutil.GenConversationIDForSingle(req.MsgData.SendID, req.MsgData.RecvID)
 	if !isNotification {
-		isSend, err = m.modifyMessageByUserMessageReceiveOpt(authverify.WithTempAdmin(ctx), req.MsgData.RecvID, conversationutil.GenConversationIDForSingle(req.MsgData.SendID, req.MsgData.RecvID), constant.SingleChatType, req)
+		if err := m.ensureSingleChatConversations(authverify.WithTempAdmin(ctx), req.MsgData, conversationID); err != nil {
+			return nil, err
+		}
+		isSend, err = m.modifyMessageByUserMessageReceiveOpt(authverify.WithTempAdmin(ctx), req.MsgData.RecvID, conversationID, constant.SingleChatType, req)
 		if err != nil {
 			return nil, err
 		}
@@ -202,6 +206,47 @@ func (m *msgServer) sendMsgSingleChat(ctx context.Context, req *pbmsg.SendMsgReq
 			SendTime:    req.MsgData.SendTime,
 		}, nil
 	}
+}
+
+func (m *msgServer) ensureSingleChatConversations(ctx context.Context, msgData *sdkws.MsgData, conversationID string) error {
+	if msgData == nil {
+		return nil
+	}
+	senderMissing, err := m.isSingleChatConversationMissing(ctx, msgData.SendID, conversationID)
+	if err != nil {
+		return err
+	}
+	receiverMissing, err := m.isSingleChatConversationMissing(ctx, msgData.RecvID, conversationID)
+	if err != nil {
+		return err
+	}
+	if !senderMissing && !receiverMissing {
+		return nil
+	}
+	log.ZWarn(ctx, "single chat conversation missing, auto create", nil,
+		"conversationID", conversationID,
+		"sendID", msgData.SendID,
+		"recvID", msgData.RecvID,
+		"senderMissing", senderMissing,
+		"receiverMissing", receiverMissing,
+	)
+	return m.conversationClient.CreateSingleChatConversations(ctx, &pbconv.CreateSingleChatConversationsReq{
+		SendID:           msgData.SendID,
+		RecvID:           msgData.RecvID,
+		ConversationID:   conversationID,
+		ConversationType: msgData.SessionType,
+	})
+}
+
+func (m *msgServer) isSingleChatConversationMissing(ctx context.Context, ownerUserID, conversationID string) (bool, error) {
+	_, err := m.ConversationLocalCache.GetConversation(ctx, ownerUserID, conversationID)
+	if err == nil {
+		return false, nil
+	}
+	if isConversationRecordNotFound(err) {
+		return true, nil
+	}
+	return false, err
 }
 
 func (m *msgServer) SendSimpleMsg(ctx context.Context, req *pbmsg.SendSimpleMsgReq) (*pbmsg.SendSimpleMsgResp, error) {

@@ -18,6 +18,7 @@ import (
 	"context"
 	"math/rand"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/openimsdk/open-im-server/v3/pkg/authverify"
@@ -190,7 +191,7 @@ func (m *msgServer) modifyMessageByUserMessageReceiveOpt(ctx context.Context, us
 		return true, nil
 	}
 	singleOpt, err := m.ConversationLocalCache.GetSingleConversationRecvMsgOpt(ctx, userID, conversationID)
-	if errs.ErrRecordNotFound.Is(err) {
+	if isConversationRecordNotFound(err) {
 		return true, nil
 	} else if err != nil {
 		return false, err
@@ -211,4 +212,16 @@ func (m *msgServer) modifyMessageByUserMessageReceiveOpt(ctx context.Context, us
 		return true, nil
 	}
 	return true, nil
+}
+
+func isConversationRecordNotFound(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errs.ErrRecordNotFound.Is(err) || servererrs.ErrRecordNotFound.Is(err) {
+		return true
+	}
+	lowerErr := strings.ToLower(err.Error())
+	return strings.Contains(lowerErr, "recordnotfounderror") ||
+		strings.Contains(lowerErr, "conversation not found")
 }

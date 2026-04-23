@@ -26,3 +26,14 @@ components/
 
 # Ignore tools and scripts
 .github/
+
+# Ignore local deployment data and offline delivery artifacts
+artifacts/
+deployments/
+
+# Ignore local sibling app copies accidentally left in the repo workspace
+chat/
+electron/
+
+# Ignore docs during image build to reduce Docker context size
+docs/

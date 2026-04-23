@@ -408,13 +408,13 @@ func (c *conversationServer) CreateSingleChatConversations(ctx context.Context, 
 		conversation2.OwnerUserID = req.RecvID
 		conversation2.UserID = req.SendID
 
-		if err := c.webhookBeforeCreateSingleChatConversations(ctx, &c.config.WebhooksConfig.BeforeCreateSingleChatConversations, &conversation); err != nil && err != servererrs.ErrCallbackContinue {
+		if err := c.webhookBeforeCreateSingleChatConversations(ctx, &c.config.WebhooksConfig.BeforeCreateSingleChatConversations, &conversation2); err != nil && err != servererrs.ErrCallbackContinue {
 			return nil, err
 		}
 
 		err = c.conversationDatabase.CreateConversation(ctx, []*dbModel.Conversation{&conversation2})
 		if err != nil {
-			log.ZWarn(ctx, "create conversation failed", err, "conversation2", conversation)
+			log.ZWarn(ctx, "create conversation failed", err, "conversation2", conversation2)
 		}
 
 		c.webhookAfterCreateSingleChatConversations(ctx, &c.config.WebhooksConfig.AfterCreateSingleChatConversations, &conversation2)

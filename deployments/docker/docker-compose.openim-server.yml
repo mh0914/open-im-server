@@ -190,7 +190,7 @@ services:
         soft: 10000
         hard: 10000
     healthcheck:
-      test: ["CMD-SHELL", "mage check >/dev/null 2>&1 || exit 1"]
+      test: ["CMD-SHELL", "ps -ef | grep -q '[o]penim-api' && ps -ef | grep -q '[o]penim-rpc-conversation' && ps -ef | grep -q '[o]penim-rpc-user' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5

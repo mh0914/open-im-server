@@ -215,6 +215,8 @@ func (m *MessageApi) getSendMsgReq(c *gin.Context, req apistruct.SendMsg) (sendM
 		data = &apistruct.FileElem{}
 	case constant.AtText:
 		data = &apistruct.AtElem{}
+	case constant.Location:
+		data = &apistruct.LocationElem{}
 	case constant.Custom:
 		data = &apistruct.CustomElem{}
 	case constant.MarkdownText:

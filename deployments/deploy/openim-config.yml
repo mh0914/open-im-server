@@ -775,7 +775,7 @@ data:
         ext: burn after reading
 
   webhooks.yml: |
-    url: http://127.0.0.1:10006/callbackExample
+    url: http://chat-api-service:10008/callback/open_im
     beforeSendSingleMsg:
       enable: false
       timeout: 5
@@ -798,7 +798,7 @@ data:
       enable:  false
       timeout: 5
     afterSendSingleMsg:
-      enable: false
+      enable: true
       timeout: 5
       # Only the senID/recvID specified in attentionIds will send the callback
       # if not set, all user messages will be callback

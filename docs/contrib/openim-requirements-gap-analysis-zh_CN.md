@@ -38,9 +38,9 @@
 
 ### 2.2 互联网环境
 
-- Chat：`http://59.46.214.114:18080/chat`
-- OpenIM API：`http://59.46.214.114:18080/api`
-- MsgGateway：`ws://59.46.214.114:18080/msg_gateway`
+- Chat：`http://<public-host>:<public-port>/chat`
+- OpenIM API：`http://<public-host>:<public-port>/api`
+- MsgGateway：`ws://<public-host>:<public-port>/msg_gateway`
 
 公网测试账号：
 

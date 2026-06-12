@@ -504,7 +504,20 @@ func (m *MessageApi) SendSimpleMessage(c *gin.Context) {
 		return
 	}
 
-	content, err := jsonutil.JsonMarshal(apistruct.MarkdownTextElem{Content: req.Content})
+	contentType := req.ContentType
+	if contentType == 0 {
+		contentType = constant.MarkdownText
+	}
+	var content []byte
+	switch contentType {
+	case constant.Text:
+		content, err = jsonutil.JsonMarshal(apistruct.TextElem{Content: req.Content})
+	case constant.MarkdownText:
+		content, err = jsonutil.JsonMarshal(apistruct.MarkdownTextElem{Content: req.Content})
+	default:
+		apiresp.GinError(c, errs.WrapMsg(errs.ErrArgs, "unsupported simple message content type", "contentType", contentType))
+		return
+	}
 	if err != nil {
 		apiresp.GinError(c, errs.Wrap(err))
 		return
@@ -517,7 +530,7 @@ func (m *MessageApi) SendSimpleMessage(c *gin.Context) {
 		SenderPlatformID: constant.AdminPlatformID,
 		SessionType:      sessionType,
 		MsgFrom:          constant.UserMsgType,
-		ContentType:      constant.MarkdownText,
+		ContentType:      contentType,
 		Content:          content,
 		OfflinePushInfo:  req.OfflinePushInfo,
 		Ex:               req.Ex,

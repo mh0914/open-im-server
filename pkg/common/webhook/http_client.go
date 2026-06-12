@@ -67,12 +67,21 @@ func (c *Client) SyncPost(ctx context.Context, command string, req callbackstruc
 func (c *Client) AsyncPost(ctx context.Context, command string, req callbackstruct.CallbackReq, resp callbackstruct.CallbackResp, after *config.AfterConfig) {
 	if after.Enable {
 		c.queue.Push(func() { c.post(ctx, command, req, resp, after.Timeout) })
+	} else {
+		log.ZWarn(ctx, "hubmessage webhook async disabled", nil, "command", command)
 	}
 }
 
 func (c *Client) AsyncPostWithQuery(ctx context.Context, command string, req callbackstruct.CallbackReq, resp callbackstruct.CallbackResp, after *config.AfterConfig, queryParams map[string]string) {
 	if after.Enable {
-		c.queue.Push(func() { c.postWithQuery(ctx, command, req, resp, after.Timeout, queryParams) })
+		log.ZWarn(ctx, "hubmessage webhook async enqueue", nil, "baseURL", c.url, "command", command, "timeout", after.Timeout, "query", queryParams)
+		c.queue.Push(func() {
+			if err := c.postWithQuery(ctx, command, req, resp, after.Timeout, queryParams); err != nil {
+				log.ZWarn(ctx, "hubmessage webhook async post failed", err, "baseURL", c.url, "command", command, "timeout", after.Timeout, "query", queryParams)
+			}
+		})
+	} else {
+		log.ZWarn(ctx, "hubmessage webhook async disabled", nil, "baseURL", c.url, "command", command, "query", queryParams)
 	}
 }
 

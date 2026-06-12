@@ -28,6 +28,7 @@ import (
 	"github.com/openimsdk/protocol/constant"
 	pbchat "github.com/openimsdk/protocol/msg"
 	"github.com/openimsdk/protocol/sdkws"
+	"github.com/openimsdk/tools/log"
 	"github.com/openimsdk/tools/mcontext"
 	"github.com/openimsdk/tools/utils/datautil"
 	"github.com/openimsdk/tools/utils/stringutil"
@@ -91,16 +92,42 @@ func (m *msgServer) webhookBeforeSendSingleMsg(ctx context.Context, before *conf
 
 // Move to msgtransfer
 func (m *msgServer) webhookAfterSendSingleMsg(ctx context.Context, after *config.AfterConfig, msg *pbchat.SendMsgReq) {
+	log.ZWarn(ctx, "hubmessage after single msg webhook reached", nil,
+		"sendID", msg.MsgData.SendID,
+		"recvID", msg.MsgData.RecvID,
+		"contentType", msg.MsgData.ContentType,
+		"enable", after.Enable,
+		"attentionIds", after.AttentionIds,
+		"deniedTypes", after.DeniedTypes,
+	)
 	if msg.MsgData.ContentType == constant.Typing {
+		log.ZWarn(ctx, "hubmessage after single msg webhook skipped typing", nil,
+			"sendID", msg.MsgData.SendID,
+			"recvID", msg.MsgData.RecvID,
+			"contentType", msg.MsgData.ContentType,
+		)
 		return
 	}
 	if !filterAfterMsg(msg, after) {
+		log.ZWarn(ctx, "hubmessage after single msg webhook filtered", nil,
+			"sendID", msg.MsgData.SendID,
+			"recvID", msg.MsgData.RecvID,
+			"contentType", msg.MsgData.ContentType,
+			"attentionIds", after.AttentionIds,
+			"deniedTypes", after.DeniedTypes,
+		)
 		return
 	}
 	cbReq := &cbapi.CallbackAfterSendSingleMsgReq{
 		CommonCallbackReq: toCommonCallback(ctx, msg, cbapi.CallbackAfterSendSingleMsgCommand),
 		RecvID:            msg.MsgData.RecvID,
 	}
+	log.ZWarn(ctx, "hubmessage after single msg webhook enqueue", nil,
+		"sendID", msg.MsgData.SendID,
+		"recvID", msg.MsgData.RecvID,
+		"contentType", msg.MsgData.ContentType,
+		"command", cbReq.GetCallbackCommand(),
+	)
 	m.webhookClient.AsyncPostWithQuery(ctx, cbReq.GetCallbackCommand(), cbReq, &cbapi.CallbackAfterSendSingleMsgResp{}, after, buildKeyMsgDataQuery(msg.MsgData))
 }
 
